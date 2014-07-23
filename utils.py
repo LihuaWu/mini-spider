@@ -159,8 +159,7 @@ def save_and_fetch(url, pattern, path, timeout):
 						%(url, filename))
 		write_file(os.path.abspath(filename), html)
 
-	for u in extract_urls(url, html):
-		yield u
+	return extract_urls(url, html)
 
 
 def write_file(filename, content):
@@ -176,7 +175,20 @@ def write_file(filename, content):
 	except IOError as e:
 		log.error(e.message)
 
-def extract_urls(html):
+
+def filter_by_node_value(x):
+	start_filter = ['#jump']
+	in_filter = ['void(0)', 'javascript:']
+	for p in start_filter:
+		if x[1].startswith(p):
+			return False
+	for p in in_filter:
+		if p in x[1]:
+			return False
+	return True
+
+
+def extract_urls(url, html):
 	"""extract all link tags from html
 	use filter strategies to filter tags which are not url
 
@@ -184,25 +196,22 @@ def extract_urls(html):
 	html: html page content
 
 	Return values:
+	a list of urls with abs path
 	"""
 	#search links
 	d = pyquery.PyQuery(html)
+	nodes = [e for i in d.find('a') for e in i.items()]
+	nodes.extend([e for i in d.find('img') for e in i.items()])
+	nodes = {i for i in nodes}
 
-	url_filter = ['javascript:;', '#jump']
-	for i in d.find('a'):
-		is_filtered = False
-		for k, v in i.items():
-			#filter by node key
-			if k != "href":	
-				continue
-			#filter by node value
-			for p in url_filter:
-				if v.startswith(p):
-					is_filtered = True
-					break
-			if is_filtered:
-				continue
-			yield v
+	#filter by node value length
+	nodes = filter(lambda x: len(x[1]) > 5, nodes)
+	#filter by node key and node value
+	nodes = filter(lambda x: x[0] == 'href' or "src" in x[0], nodes)
+	nodes = filter(filter_by_node_value, nodes)
+
+	#rewrite url and convert relative path to abs path
+	return [urlparse.urljoin(url, i[1].strip()) for i in nodes]
 
 if __name__ == '__main__':
 	pass

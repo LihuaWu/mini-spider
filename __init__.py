@@ -46,14 +46,18 @@ To crawl pages from web in terms of special URL patterns."""
 
 def main():
 	_, confs = parse_args()
+
 	#load spider.conf
 	crawl_timeout = float(confs['spider']['crawl_timeout'])
 	crawl_interval = float(confs['spider']['crawl_interval'])
 	max_depth = int(confs['spider']['max_depth'])
-	#bloom filter
-	bf = pybloomfilter.BloomFilter(100000, 0.0001, confs['BloomFilter']['bf_file'])
 	target_url = confs['spider']['target_url']
 	store_page_dir = confs['spider']['store_page_dir']
+	bf_file = confs["BloomFilter"]['bf_file']
+	thread_num = int(confs['spider']['thread_count'])
+
+	#bloom filter
+	bf = pybloomfilter.BloomFilter(100000, 0.0001, bf_file)
 
 	#initialize task queue from input seeds
 	tasks = gevent.queue.Queue()
@@ -63,9 +67,7 @@ def main():
 		log.info('queue in url:%s' %line)
 		tasks.put_nowait(seed.Seed(0, line))
 
-	thread_num = int(confs['spider']['thread_count'])
-
-	#work thread
+	#work thread function
 	def worker(n):
 		while not tasks.empty():
 			depth, url = tasks.get()
@@ -85,7 +87,10 @@ def main():
 				gevent.sleep(crawl_interval)
 		log.info('worker%s quit.' %n)
 
+	#start work thread
 	threads = [gevent.spawn(worker, i) for i in range(thread_num)]
+
+	#wait all work threads quit elegantly. :)
 	gevent.joinall(threads) 
 
 if __name__ == '__main__':
