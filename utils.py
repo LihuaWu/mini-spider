@@ -153,13 +153,16 @@ def save_and_fetch(url, pattern, path, timeout):
 		log.error("%s:%s" %(url, e.message))
 		return
 
+	#save pages in terms of url
 	if pattern.match(url):
 		filename = "%s%s" %(path, urllib.quote_plus(url))
 		log.info('url: %s match target_url. store in file:%s.'
 						%(url, filename))
 		write_file(os.path.abspath(filename), html)
-
-	return extract_urls(url, html)
+	
+	#extract url link from web pages
+	for u  in extract_urls(url, html):
+		yield u
 
 
 def write_file(filename, content):
@@ -198,7 +201,7 @@ def extract_urls(url, html):
 	Return values:
 	a list of urls with abs path
 	"""
-	#search links
+	#search links according to tag category
 	d = pyquery.PyQuery(html)
 	nodes = [e for i in d.find('a') for e in i.items()]
 	nodes.extend([e for i in d.find('img') for e in i.items()])
